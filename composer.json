@@ -1,0 +1,18 @@
+{
+    "name": "anhduc/query_builder",
+    "autoload": {
+        "psr-4": {
+            "Anhduc\\QueryBuilder\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Anhduc"
+        }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "ext-pdo": "*",
+        "larapack/dd": "^1.1"
+    }
+}
