@@ -31,7 +31,7 @@ $connection = new \Anhduc\QueryBuilder\Connection\Connection($config);
 Ví dụ lấy danh sách trong bảng users:
 
 ```php
-$builder = (new Anhduc\QueryBuilder\DB())->select('id', 'name')->table('users')->where('id', '=', 1)->all();
+$builder = (new Anhduc\QueryBuilder\DB())->select('id', 'name')->table('users')->where('id', '=', 1)->get();
 ```
 
 3. Sử dụng Model:
