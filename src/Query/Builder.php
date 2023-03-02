@@ -6,327 +6,256 @@ use Anhduc\QueryBuilder\Connection\Connection;
 use PDO;
 
 
-class Builder extends SqlClauses
+class Builder
 {
+    private PDO $pdo;
+    protected static $table = '';
+    protected static $primary_key = 'id';
+    private $where = '';
+    private $order = '';
+    private $limit = '';
+    private $offset = '';
+    private $grouping = '';
+    private $having = '';
+    private $join = '';
+    private $select = '';
 
-    /**
-     * The database connection object.
-     *
-     * @var mixed
-     */
-    protected $connection;
-
-    /**
-     * The type of data that should be fetched from results.
-     *
-     * @var integer
-     */
-    protected $fetchType = PDO::FETCH_OBJ;
-
-    /**
-     * The insentitive case for database type.
-     *
-     * @var string
-     */
-    protected $insensitive;
-
-    /**
-     * The logic operators (and, or).
-     *
-     * @var array
-     */
-    protected $logicOperatorss = [
-        'or',
-        'and',
-    ];
-
-    /**
-     * Available comparisons for where clause.
-     */
-    protected $comparisons = [
-        'equal' => '=',
-        'not_equal' => '<>',
-        'not_equal_other' => '!=',
-        'less' => '<',
-        'less_or_equal' => '<=',
-        'greater' => '>',
-        'greater_or_equal' => '>=',
-        'like' => 'like',
-        'in' => 'in',
-        'not_in' => 'not in',
-        'between' => 'between',
-        'not_between' => 'not between',
-    ];
-    /**
-     * Create a new query builder instance.
-     *
-     */
-    public function __construct()
+    public function __construct($table = '')
     {
-        $this->connection = Connection::getConnection();
+        self::$table = $table;
+        $this->pdo = Connection::getConnection();
     }
 
-
-    /**
-     * Get all records from query results.
-     *
-     * @return array
-     */
-
-
-    /**
-     * Get the first record from result.
-     *
-     * @return mixed
-     */
-    public function first()
+    public static function table($table)
     {
-        $sql = $this->getCompiledSelectStatement();
-//        dd($this->connection->query($sql));
-        return $this->connection->query($sql)->fetch($this->fetchType);
+        static::$table = $table;
+        $static = new static($table);
+        return $static;
     }
 
-    /**
-     * Get the compiled select clause.
-     *
-     * @return string
-     */
-    protected function getCompiledSelectClause()
+    public static function RAW($sql)
     {
-        return 'select ' . implode(', ', $this->select);
+        return $sql;
     }
 
-    /**
-     * Add tables for from clause.
-     *
-     * @param array $tables
-     * @return void
-     */
-    protected function addTable(array $tables)
+    public function where($column, $operator = null, $value = null, $boolean = 'AND')
     {
-        foreach ($tables as $key => $table) {
-            $tables[$key] = $this->identifierOf($table);
+        if (is_array($column)) {
+            foreach ($column as $key => $value) {
+                $this->where($key, $operator, $value);
+            }
+        } else {
+            if ($this->where) {
+                $this->where .= " {$boolean} {$column} {$operator} '{$value}'";
+            } else {
+                $this->where .= " WHERE {$column} {$operator} '{$value}'";
+            }
         }
-
-        $this->from = array_merge($this->from, $tables);
-    }
-
-    /**
-     * Get the compiled from clause.
-     *
-     * @return string
-     */
-    protected function getCompiledFromClause()
-    {
-        return 'from ' . implode(', ', $this->from);
-    }
-
-    /**
-     * Add condition for where clause.
-     *
-     * @param string $field
-     * @param string $operator
-     * @param mixed $value
-     * @param string $logicOperators
-     * @return void
-     */
-    protected function addWhere($field, $operator, $value, $logicOperator = 'and')
-    {
-        if (!in_array($operator, $this->comparisons)) {
-            die("$operator is invalid operator.");
-        }
-
-        switch ($operator) {
-            case $this->comparisons['in']:
-            case $this->comparisons['not_in']:
-                $value = $this->getValueForInClause($value);
-                break;
-            case $this->comparisons['between']:
-            case $this->comparisons['not_between']:
-                $value = $this->getValueForBetweenClause($value);
-                break;
-            default:
-        }
-
-        $field = $this->identifierOf($field);
-
-        $this->where[] = [
-            'logic_operator' => $logicOperator,
-            'params' => compact('field', 'operator', 'value'),
-        ];
-    }
-
-    /**
-     * Add condition with logic operator to where clause.
-     *
-     * @param string $logicOperator
-     * @param array $params
-     * @return $this
-     */
-    protected function whereLogicOperator($logicOperator, ...$params)
-    {
-        list($field, $operator, $value) = $this->getParseWhereParameters($params);
-
-        $this->addWhere($field, $operator, $value, $logicOperator);
-
         return $this;
     }
 
-    /**
-     * Get parse where parameters.
-     *
-     * @param array $params
-     * @return array
-     */
-    protected function getParseWhereParameters(array $params)
+    public function orWhere($column, $operator = null, $value = null)
     {
-        if (count($params) === 3) {
-            return $params;
+        if (is_array($column)) {
+            foreach ($column as $key => $value) {
+                $this->orWhere($key, $operator, $value);
+            }
+        } else {
+            if (!empty($this->where)) {
+                $this->where .= " OR {$column} {$operator} '{$value}'";
+            } else {
+                $this->where .= " WHERE {$column} {$operator} '{$value}'";
+            }
         }
-
-        if (count($params) === 2) {
-            return [$params[0], $this->comparisons['equal'], $params[1]];
-        }
-        die('Not valid where parameters.');
+        return $this;
     }
 
-    /**
-     * Get the compiled where clause.
-     *
-     * @return string
-     */
-    protected function getCompiledWhereClause()
+    public function orderBy($column, $order = 'ASC')
     {
-        if (empty($this->where)) {
-            return '';
+        $order = strtoupper($order);
+        if (!in_array($order, ['ASC', 'DESC']))
+            throw new \Exception("Order must be ASC or DESC");
+        if (is_array($column)) {
+            $column = implode(',', $column);
         }
+        $this->order = " ORDER BY {$column} {$order}";
+        return $this;
+    }
 
-        $conditions = '';
+    public function limit($limit)
+    {
+        if (!is_numeric($limit))
+            throw new \Exception("Limit must be a number");
+        $this->limit = " LIMIT {$limit}";
+        return $this;
+    }
 
-        foreach ($this->where as $key => $where) {
-            $conditions .= $where['logic_operator'] . ' '
-                . $where['params']['field'] . ' '
-                . $where['params']['operator'] . ' '
-                . $where['params']['value'] . ' ';
+    public function groupBy($column)
+    {
+        if (is_array($column)) {
+            $column = implode(',', $column);
         }
-
-        $conditions = '(' . ltrim(ltrim($conditions, 'or'), 'and') . ')';
-
-        return 'where ' . trim($conditions);
+        $this->grouping = " GROUP BY {$column}";
+        return $this;
     }
 
-    /**
-     * Get the identifier of a field or a table.
-     *
-     * @param string $identifier
-     * @return string
-     */
-    protected function identifierOf($identifier)
+    public function join($table, $first, $operator, $second)
     {
-        $identifier = strtolower($identifier);
+        $this->join .= " JOIN {$table} ON {$first} {$operator} {$second}";
+        return $this;
+    }
 
-        if (preg_match('/^(.+) as (.+)$/', $identifier)) {
-            return $this->identifierWithAsKeywordOf($identifier);
+    public function leftJoin($table, $first, $operator, $second)
+    {
+        $this->join .= " LEFT JOIN {$table} ON {$first} {$operator} {$second}";
+        return $this;
+    }
+
+    public function having($column, $operator = null, $value = null)
+    {
+        if (empty($this->grouping))
+            throw new \Exception("You must use groupBy() before having()");
+        if (is_array($column)) {
+            foreach ($column as $key => $value) {
+                $this->having($key, $operator, $value);
+            }
+        } else {
+            if ($this->having) {
+                $this->having .= " AND {$column} {$operator} '{$value}'";
+            } else {
+                $this->having .= " HAVING {$column} {$operator} '{$value}'";
+            }
         }
+        return $this;
+    }
 
-        if (strpos($identifier, '.') !== false) {
-            return $this->identifierWithDotOf($identifier);
+    public function insert($data)
+    {
+        $insertData = '';
+        if (count($data) == count($data, COUNT_RECURSIVE)) {
+            $columns = implode(',', array_keys($data));
+            $values = implode(',', array_values($data));
+            $insertData = "({$values}),";
+        } else {
+            foreach ($data as $key => $values) {
+                $columns = implode(',', array_keys($values));
+                $value = implode(',', array_values($values));
+                $insertData .= "({$value}),";
+            }
         }
-
-        return $this->insensitive . trim($identifier) . $this->insensitive;
-    }
-
-    /**
-     * Get the identifier (include as keyword) of a field or a table.
-     *
-     * @param string $identifier
-     * @return string
-     */
-    protected function identifierWithAsKeywordOf($identifier)
-    {
-        $data = explode(' as ', $identifier);
-
-        if (count($data) == 2) {
-            $baseField = $this->identifierOf($data[0]);
-            $aliasField = $this->identifierOf($data[1]);
-
-            return $baseField . ' as ' . $aliasField;
+        $sql = "INSERT INTO " . static::$table . " ({$columns}) VALUES {$insertData};";
+        try {
+            //$this->pdo->exec($sql);
+        } catch (\PDOException $e) {
+            throw new \RuntimeException($e->getMessage());
         }
-
-        die($identifier . ' is invalid.');
     }
 
-    /**
-     * Get the identifier (include as dot) of a field or a table.
-     *
-     * @param string $identifier
-     * @return string
-     */
-    protected function identifierWithDotOf($identifier)
+    public function delete()
     {
-        $data = explode('.', $identifier);
-
-        if (count($data) == 2) {
-            $table = $this->identifierOf($data[0]);
-            $field = $this->identifierOf($data[1]);
-
-            return $table . '.' . $field;
+        if (empty(static::$table))
+            throw new \Exception("Table name is not set");
+        $sql = "DELETE FROM " . static::$table . " {$this->where};";
+        try {
+            return $this->pdo->exec($sql) ? true : false;
+        } catch (\PDOException $e) {
+            throw new \Exception($e->getMessage());
         }
-
-        die($identifier . ' is invalid.');
     }
 
-    /**
-     * Get compiled sql statement.
-     *
-     * @return string
-     */
-    public function getCompiledSelectStatement()
+    public function select(...$columns)
     {
-        $clauses['select'] = $this->getCompiledSelectClause();
-        $clauses['from'] = $this->getCompiledFromClause();
-        $clauses['where'] = $this->getCompiledWhereClause();
-
-        $this->clearAllClauses();
-
-        return implode(' ', $clauses);
-    }
-
-    /**
-     * Get value of in or not in comparison.
-     *
-     * @param array $values
-     * @return string
-     */
-    protected function getValueForInClause(array $values)
-    {
-        return '(' . implode(', ', $values) . ')';
-    }
-
-    /**
-     * Get value for between comparison.
-     *
-     * @param array $values
-     * @return string
-     */
-    protected function getValueForBetweenClause(array $values)
-    {
-        if (count($values) !== 2) {
-            die('This is invalid for between clause.');
+        foreach ($columns as $key => $column) {
+            if (is_array($column)) {
+                foreach ($column as $key => $value) {
+                    $this->select .= "{$key} AS {$value}, ";
+                }
+            } else {
+                if ($key === count($columns) - 1) {
+                    $this->select .= "{$column} ";
+                } else {
+                    $this->select .= "{$column}, ";
+                }
+            }
         }
-
-        return $values[0] . ' and ' . $values[1];
+        return $this;
     }
 
-    /**
-     * Clear all clauses.
-     *
-     * @return void
-     */
-    protected function clearAllClauses()
+    public function update($data)
     {
-        $this->select = [];
-        $this->from = [];
-        $this->where = [];
+        $updateData = '';
+        foreach ($data as $key => $value) {
+            $updateData .= "{$key} = '{$value}'";
+            if($key !== array_key_last($data))
+                $updateData .= ", ";
+        }
+        $sql = "UPDATE " . static::$table . " SET {$updateData} {$this->where};";
+        var_dump($sql);
+        try {
+            return $this->pdo->exec($sql);
+        } catch (\PDOException $e) {
+            throw new \Exception($e->getMessage());
+        }
     }
+
+    public function get()
+    {
+        if (empty(static::$table)) {
+            throw new \Exception("Table name is not set");
+        }
+        if (empty($this->select)) {
+            $this->select = "*";
+        }
+        $sql = "SELECT {$this->select} FROM "
+            . static::$table
+            . " {$this->join} {$this->where} {$this->grouping} {$this->having} {$this->order} {$this->limit} {$this->offset};";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            return $result;
+        } catch (\PDOException $e) {
+            throw new \Exception($e->getMessage());
+        }
+    }
+
+    public function count()
+    {
+        if (empty(static::$table)) {
+            throw new \Exception("Table name is not set");
+        }
+        if (empty($this->select)) {
+            $this->select = "*";
+        }
+        $sql = "SELECT COUNT(*) as count FROM "
+            . static::$table
+            . " {$this->join} {$this->where} {$this->grouping} {$this->having} {$this->order} {$this->limit} {$this->offset};";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+            return $result;
+        } catch (\PDOException $e) {
+            throw new \Exception($e->getMessage());
+        }
+    }
+
+    public function first()
+    {
+        $result = $this->get();
+        return $result[0] ?? null;
+    }
+
+    public function toSql()
+    {
+        if (!$this->select) {
+            $this->select = "*";
+        }
+        return "SELECT {$this->select} FROM "
+            . static::$table
+            . " {$this->join} {$this->where} {$this->grouping} {$this->having} {$this->order} {$this->limit} {$this->offset};";
+    }
+
 }

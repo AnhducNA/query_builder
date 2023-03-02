@@ -2,134 +2,265 @@
 
 namespace Anhduc\QueryBuilder\Query;
 
+use Anhduc\QueryBuilder\Connection\Connection;
+use Exception;
+use PDO;
+use PDOException;
+use RuntimeException;
+
 class SqlClauses
 {
-    /**
-     * Select clause parameters.
-     *
-     * @var array
-     */
-    protected array $select = [];
+    protected static $table = '';
+    protected static $primary_key = 'id';
+    private PDO $pdo;
+    private $select = '';
+    private $where = '';
+    private $order = '';
+    private $limit = '';
+    private $offset = '';
+    private $grouping = '';
+    private $having = '';
+    private $join = '';
 
-    /**
-     * From clause parameters.
-     *
-     * @var array
-     */
-    protected array $from = [];
-
-    /**
-     * Where clause parameters.
-     *
-     * @var array
-     */
-    protected array $where = [];
-
-    /**
-     * Group By clause parameters.
-     *
-     * @var array
-     */
-    protected array $groupBy = [];
-
-    /**
-     * Having clause parameters.
-     *
-     * @var array
-     */
-    protected array $having = [];
-
-    /**
-     * Order By clause parameters.
-     *
-     * @var array
-     */
-    protected array $orderBy = [];
-
-    /**
-     * Limit Clause parameters.
-     *
-     * @var integer
-     */
-    protected int $limit;
-
-    /**
-     * Offset clause parameters.
-     *
-     * @var integer
-     */
-    protected int $offset;
-
-    /**
-     * Apply select clause.
-     *
-     * @param mixed $fields
-     * @return $this
-     */
-    public function select($fields = ['*'])
+    public function __construct($table = '')
     {
-        $fields = is_array($fields) ? $fields : func_get_args();
-        foreach ($fields as $key => $field) {
-            $fields[$key] = $this->identifierOf($field);
+        self::$table = $table;
+        $this->pdo = Connection::getConnection();
+    }
+
+    public static function table($table)
+    {
+        static::$table = $table;
+        $static = new static($table);
+        return $static;
+    }
+
+    public static function RAW($sql)
+    {
+        return $sql;
+    }
+
+    public function select($columns = ['*'])
+    {
+        $this->bindings['select'] = ['abc'];
+        $columns = is_array($columns) ? $columns : func_get_args();
+        foreach ($columns as $key => $column){
+            if (is_array($column)) {
+                foreach ($column as $key2 => $value) {
+                    $this->select .= "{$key2} AS {$value}, ";
+                }
+            } else {
+                if ($key === count($columns) - 1) {
+                    $this->select .= "{$column} ";
+                } else {
+                    $this->select .= "{$column}, ";
+                }
+            }
+        }
+    }
+
+    public function where($column, $operator = null, $value = null, $boolean = 'AND')
+    {
+        if (is_array($column)) {
+            foreach ($column as $key => $value) {
+                $this->where($key, $operator, $value);
+            }
+        } else {
+            if ($this->where) {
+                $this->where .= " {$boolean} {$column} {$operator} '{$value}'";
+            } else {
+                $this->where .= " WHERE {$column} {$operator} '{$value}'";
+            }
         }
 
-        $this->select = array_merge($this->select, $fields);
-dd($this->select());
         return $this;
     }
 
-    /**
-     * Apply from clause.
-     *
-     * @param mixed $tables
-     * @return $this
-     */
-    public function table($tables)
+    public function orWhere($column, $operator = null, $value = null)
     {
-        dd($tables);
-        $tables = is_array($tables) ? $tables : func_get_args();
-
-        $this->addTable($tables);
-
+        if (is_array($column)) {
+            foreach ($column as $key => $value) {
+                $this->orWhere($key, $operator, $value);
+            }
+        } else {
+            if (!empty($this->where)) {
+                $this->where .= " OR {$column} {$operator} '{$value}'";
+            } else {
+                $this->where .= " WHERE {$column} {$operator} '{$value}'";
+            }
+        }
         return $this;
     }
 
-    /**
-     * Apply where clause.
-     *
-     * @param array $params
-     * @return $this
-     */
-    public function where(...$params)
+    public function orderBy($column, $order = 'ASC')
     {
-        return $this->andWhere(...$params);
+        $order = strtoupper($order);
+        if (!in_array($order, ['ASC', 'DESC']))
+            throw new Exception("Order must be ASC or DESC");
+        if (is_array($column)) {
+            $column = implode(',', $column);
+        }
+        $this->order = " ORDER BY {$column} {$order}";
+        return $this;
     }
 
-    /**
-     * Apply where clause with and.
-     *
-     * @param array $params
-     * @return $this
-     */
-    public function andWhere(...$params)
+    public function limit($limit)
     {
-        return $this->whereLogicOperator('and', ...$params);
+        if (!is_numeric($limit))
+            throw new Exception("Limit must be a number");
+        $this->limit = " LIMIT {$limit}";
+        return $this;
     }
 
-    /**
-     * Apply where clause with or.
-     *
-     * @param array $params
-     * @return $this
-     */
-    public function orWhere(...$params)
+    public function groupBy($column)
     {
-        return $this->whereLogicOperator('or', ...$params);
+        if (is_array($column)) {
+            $column = implode(',', $column);
+        }
+        $this->grouping = " GROUP BY {$column}";
+        return $this;
     }
-    public function all()
+
+    public function join($table, $first, $operator, $second)
     {
-        $sql = $this->getCompiledSelectStatement();
-dd($sql);
-        return $this->connection->query($sql)->fetchAll($this->fetchType);
+        $this->join .= " JOIN {$table} ON {$first} {$operator} {$second}";
+        return $this;
     }
+
+    public function leftJoin($table, $first, $operator, $second)
+    {
+        $this->join .= " LEFT JOIN {$table} ON {$first} {$operator} {$second}";
+        return $this;
+    }
+
+    public function having($column, $operator = null, $value = null)
+    {
+        if (empty($this->grouping))
+            throw new Exception("You must use groupBy() before having()");
+        if (is_array($column)) {
+            foreach ($column as $key => $value) {
+                $this->having($key, $operator, $value);
+            }
+        } else {
+            if ($this->having) {
+                $this->having .= " AND {$column} {$operator} '{$value}'";
+            } else {
+                $this->having .= " HAVING {$column} {$operator} '{$value}'";
+            }
+        }
+        return $this;
+    }
+
+    public function insert($data)
+    {
+        $insertData = '';
+        if (count($data) == count($data, COUNT_RECURSIVE)) {
+            $columns = implode(',', array_keys($data));
+            $values = implode(',', array_values($data));
+            $insertData = "({$values}),";
+        } else {
+            foreach ($data as $key => $values) {
+                $columns = implode(',', array_keys($values));
+                $value = implode(',', array_values($values));
+                $insertData .= "({$value}),";
+            }
+        }
+        $sql = "INSERT INTO " . static::$table . " ({$columns}) VALUES {$insertData};";
+        try {
+            //$this->pdo->exec($sql);
+        } catch (PDOException $e) {
+            throw new RuntimeException($e->getMessage());
+        }
+    }
+
+    public function delete()
+    {
+        if (empty(static::$table))
+            throw new Exception("Table name is not set");
+        $sql = "DELETE FROM " . static::$table . " {$this->where};";
+        try {
+            return $this->pdo->exec($sql) ? true : false;
+        } catch (PDOException $e) {
+            throw new Exception($e->getMessage());
+        }
+    }
+
+
+    public function update($data)
+    {
+        $updateData = '';
+        foreach ($data as $key => $value) {
+            $updateData .= "{$key} = '{$value}'";
+            if ($key !== array_key_last($data))
+                $updateData .= ", ";
+        }
+        $sql = "UPDATE " . static::$table . " SET {$updateData} {$this->where};";
+        var_dump($sql);
+        try {
+            return $this->pdo->exec($sql);
+        } catch (PDOException $e) {
+            throw new Exception($e->getMessage());
+        }
+    }
+
+    public function count()
+    {
+        if (empty(static::$table)) {
+            throw new Exception("Table name is not set");
+        }
+        if (empty($this->select)) {
+            $this->select = "*";
+        }
+        $sql = "SELECT COUNT(*) as count FROM "
+            . static::$table
+            . " {$this->join} {$this->where} {$this->grouping} {$this->having} {$this->order} {$this->limit} {$this->offset};";
+
+        try {
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $result;
+        } catch (PDOException $e) {
+            throw new Exception($e->getMessage());
+        }
+    }
+
+    public function first()
+    {
+        $result = $this->get();
+        return $result[0] ?? null;
+    }
+
+    public function get()
+    {
+        if (empty(static::$table)) {
+            throw new Exception("Table name is not set");
+        }
+        if (empty($this->select)) {
+            $this->select = "*";
+        }
+        $sql = "SELECT {$this->select} FROM "
+            . static::$table
+            . " {$this->join} {$this->where} {$this->grouping} {$this->having} {$this->order} {$this->limit} {$this->offset};";
+        try {
+            die($this->pdo);
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $result;
+        } catch (PDOException $e) {
+            throw new Exception($e->getMessage());
+        }
+    }
+
+    public function toSql()
+    {
+        if (!$this->select) {
+            $this->select = "*";
+        }
+        return "SELECT {$this->select} FROM "
+            . static::$table
+            . " {$this->join} {$this->where} {$this->grouping} {$this->having} {$this->order} {$this->limit} {$this->offset};";
+    }
+
 }

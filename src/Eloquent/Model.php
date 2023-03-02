@@ -23,7 +23,7 @@ abstract class Model implements JsonSerializable
     public function __construct()
     {
         $this->pdo = Connection::getConnection();
-
+        $this->builder = new Builder(static::$table);
     }
 
     public static function __callStatic($method, $parameters)
@@ -65,19 +65,24 @@ abstract class Model implements JsonSerializable
 
     public function prewhere($column, $operator = '=', $value = null, $boolean = 'and')
     {
-
         static::createInstance();
         static::isSetTable();
-        static::$instance->builder->where($column, $operator, $value);
+        static::$instance->builder->where($column, $operator, $value, $boolean);
         return static::$instance;
     }
 
-    public static function preall()
+    public static function preall($col = ['*'])
     {
-        static::createInstance();
         static::isSetTable();
-        static::$instance->builder->all();
-        return static::$instance;
+        $columns = $col[0] === '*' ? $col[0] : static::$primary_key . ",". implode(',', $col);
+        $sql = "SELECT " . $columns . " FROM " . static::$table;
+        $stmt = (new static)->pdo->prepare($sql);
+        $stmt->execute();
+        $models = [];
+        foreach($stmt->fetchAll(\PDO::FETCH_ASSOC) as $data) {
+            $models[] = (new static)->createModel($data);
+        }
+        return $models;
     }
     public function preget($columns = ['*'])
     {
@@ -91,6 +96,15 @@ abstract class Model implements JsonSerializable
             $models[] = (new static)->createModel($value);
         }
         return $models;
+    }
+    public static function prefirst($columns = ['*'])
+    {
+        static::createInstance();
+        if(!in_array($columns, [static::$primary_key]) && $columns[0] !== '*') {
+            $columns = [...$columns,static::$primary_key];
+        }
+        $data = static::$instance->builder->select(...$columns)->first();
+        return (new static)->createModel($data);
     }
     public function jsonSerialize()
     {
