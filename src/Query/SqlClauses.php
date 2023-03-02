@@ -1,6 +1,6 @@
 <?php
 
-namespace Anhduc\QueryBuilder\QueryBuilder;
+namespace Anhduc\QueryBuilder\Query;
 
 class SqlClauses
 {
@@ -63,7 +63,7 @@ class SqlClauses
     /**
      * Apply select clause.
      *
-     * @param  mixed  $fields
+     * @param mixed $fields
      * @return $this
      */
     public function select($fields = ['*'])
@@ -74,18 +74,19 @@ class SqlClauses
         }
 
         $this->select = array_merge($this->select, $fields);
-
+dd($this->select());
         return $this;
     }
 
     /**
      * Apply from clause.
      *
-     * @param  mixed  $tables
+     * @param mixed $tables
      * @return $this
      */
     public function table($tables)
     {
+        dd($tables);
         $tables = is_array($tables) ? $tables : func_get_args();
 
         $this->addTable($tables);
@@ -96,7 +97,7 @@ class SqlClauses
     /**
      * Apply where clause.
      *
-     * @param  array  $params
+     * @param array $params
      * @return $this
      */
     public function where(...$params)
@@ -107,7 +108,7 @@ class SqlClauses
     /**
      * Apply where clause with and.
      *
-     * @param  array  $params
+     * @param array $params
      * @return $this
      */
     public function andWhere(...$params)
@@ -118,11 +119,17 @@ class SqlClauses
     /**
      * Apply where clause with or.
      *
-     * @param  array  $params
+     * @param array $params
      * @return $this
      */
     public function orWhere(...$params)
     {
         return $this->whereLogicOperator('or', ...$params);
+    }
+    public function all()
+    {
+        $sql = $this->getCompiledSelectStatement();
+dd($sql);
+        return $this->connection->query($sql)->fetchAll($this->fetchType);
     }
 }

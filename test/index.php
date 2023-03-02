@@ -1,35 +1,28 @@
 <?php
 
-// include all example files.
-use Anhduc\QueryBuilder\Connection\MySqlConnection;
-use Anhduc\QueryBuilder\QueryBuilder\MySqlBuilder;
+require 'vendor/autoload.php';
 
-include 'src/QueryBuilder/SqlClauses.php';
-include 'src/QueryBuilder/BaseSqlBuilder.php';
-include 'src/QueryBuilder/MySqlBuilder.php';
-include 'src/Connection/MySqlConnection.php';
+$config = ['DB_SERVERNAME' => '127.0.0.1', 'DB_PORT' => '3306', 'DB_DATABASE' => 'query_builder', 'DB_USERNAME' => 'root', 'DB_PASSWORD' => 'password'];
+$connection = new \Anhduc\QueryBuilder\Connection\Connection($config);
 
-$_SERVER['DOCUMENT_ROOT'] = "/home/anhduc/Work/htdocs/query_builder";
-$config = parse_ini_file($_SERVER['DOCUMENT_ROOT'] . '/config.ini');
+//$builder = (new Anhduc\QueryBuilder\DB($config))->select('id', 'name')->table('users')->where('id', '=', 1)->all();
+//dd($builder);
+
+$user = \Anhduc\QueryBuilder\Models\User::where('id', '=', 1)->get();
+dd($user);
+
 // create a new mysql connection.
-$connection = new MySqlConnection($config);
+//
+//// create a new mysql instance.
+//$builder = new \Anhduc\QueryBuilder\QueryBuilder\MySqlBuilder($connection);
+//
+//// test an example.
+//$user = $builder->select('id', 'name')->table('users')->all();
 
-// create a new mysql instance.
-$builder = new MySqlBuilder($connection);
-
-// test an example.
-$user = $builder
-    ->select('id', 'name')
-    ->from('users')
-    ->all();
-
-print_r($user);
-
-// get a compiled select.
-$sql = $builder->select('id', 'fullname')
-    ->from('users')
-    ->where('id', '=', 3)
-    ->getCompiledSelectStatement();
-
-print_r($sql);
+//print_r($user);
+//
+//// get a compiled select.
+//$sql = $builder->select('id', 'name')->from('users')->where('id', '=', 3)->getCompiledSelectStatement();
+//
+//print_r($sql);
 

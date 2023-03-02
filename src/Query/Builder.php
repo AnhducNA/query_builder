@@ -1,11 +1,12 @@
 <?php
 
-namespace Anhduc\QueryBuilder\QueryBuilder;
+namespace Anhduc\QueryBuilder\Query;
 
+use Anhduc\QueryBuilder\Connection\Connection;
 use PDO;
 
 
-abstract class BaseSqlBuilder extends SqlClauses
+class Builder extends SqlClauses
 {
 
     /**
@@ -56,27 +57,22 @@ abstract class BaseSqlBuilder extends SqlClauses
         'between' => 'between',
         'not_between' => 'not between',
     ];
-
     /**
      * Create a new query builder instance.
      *
      */
-    public function __construct($connection)
+    public function __construct()
     {
-        $this->connection = $connection;
+        $this->connection = Connection::getConnection();
     }
+
 
     /**
      * Get all records from query results.
      *
      * @return array
      */
-    public function all()
-    {
-        $sql = $this->getCompiledSelectStatement();
 
-        return $this->connection->query($sql)->fetchAll($this->fetchType);
-    }
 
     /**
      * Get the first record from result.
@@ -86,10 +82,9 @@ abstract class BaseSqlBuilder extends SqlClauses
     public function first()
     {
         $sql = $this->getCompiledSelectStatement();
-
+//        dd($this->connection->query($sql));
         return $this->connection->query($sql)->fetch($this->fetchType);
     }
-
 
     /**
      * Get the compiled select clause.
@@ -192,7 +187,6 @@ abstract class BaseSqlBuilder extends SqlClauses
         if (count($params) === 2) {
             return [$params[0], $this->comparisons['equal'], $params[1]];
         }
-
         die('Not valid where parameters.');
     }
 
