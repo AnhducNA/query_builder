@@ -5,7 +5,7 @@ Người thực hiện: [Lê Anh Đức](https://github.com/AnhducNA)
 ## Cài đặt
 
 ```
-composer require anhduc/query_builder
+composer require "anhduc/query_builder @dev"
 ```
 
 ## Cấu 
