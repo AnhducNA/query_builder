@@ -2,29 +2,37 @@
 
 Người thực hiện: [Lê Anh Đức](https://github.com/AnhducNA)
 
-## Installation
-## Configuration
+## Cài đặt
 
-- Create a config.ini file in root folder with content
-
-```ini
-    DB_CONNECTION=mysql
-    DB_HOST=127.0.0.1
-    DB_PORT=3306
-    DB_DATABASE=database_name
-    DB_USERNAME=root
-    DB_PASSWORD=password
+```
+composer require anhduc/query_builder
 ```
 
-and customize it
+## Cấu 
 
-## Usage examples
+Sửa biến $config thích hợp trong file test/index.php
 
-1. Use Query Builder
+## Cách sử dụng:
 
-   ```php
-       <?php
-           require 'vendor/autoload.php';
-           use Hoangm\Query\DB;
-           $user = DB::table('users')->get();
-   ```
+1. Connect database
+
+```php
+$config = ['DB_SERVERNAME' => '127.0.0.1', 'DB_PORT' => '3306', 'DB_DATABASE' => 'query_builder', 'DB_USERNAME' => 'root', 'DB_PASSWORD' => 'password'];
+$connection = new \Anhduc\QueryBuilder\Connection\Connection($config);
+```
+
+2. Sử dụng Query Builder
+
+Ví dụ lấy danh sách trong bảng users:
+
+```php
+$builder = (new Anhduc\QueryBuilder\DB())->select('id', 'name')->table('users')->where('id', '=', 1)->all();
+```
+
+3. Sử dụng Model:
+
+Ví dụ lấy danh sách trong bảng users:
+
+```php
+$user = \Anhduc\QueryBuilder\Models\User::where('id', '=', '1')->first();
+```

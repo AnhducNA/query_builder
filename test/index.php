@@ -6,7 +6,6 @@ $config = ['DB_SERVERNAME' => '127.0.0.1', 'DB_PORT' => '3306', 'DB_DATABASE' =>
 $connection = new \Anhduc\QueryBuilder\Connection\Connection($config);
 
 //$builder = (new Anhduc\QueryBuilder\DB())->select('id', 'name')->table('users')->where('id', '=', 1)->all();
-//$builder =  (new \Anhduc\QueryBuilder\DB)->table('users')->where('id', '=', 1)->orderBy('id')->get();
 //dd($builder);
 
 //$user = \Anhduc\QueryBuilder\Models\User::where('id', '=', '1')->first();
