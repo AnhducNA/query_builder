@@ -12,12 +12,17 @@ composer require anhduc/query_builder
 
 Sửa biến $config thích hợp trong file test/index.php
 
+```php
+$config = ['DB_SERVERNAME' => '127.0.0.1', 'DB_PORT' => '3306', 'DB_DATABASE' => 'query_builder', 'DB_USERNAME' => 'root', 'DB_PASSWORD' => 'password'];
+
+```
+
+
 ## Cách sử dụng:
 
 1. Connect database
 
 ```php
-$config = ['DB_SERVERNAME' => '127.0.0.1', 'DB_PORT' => '3306', 'DB_DATABASE' => 'query_builder', 'DB_USERNAME' => 'root', 'DB_PASSWORD' => 'password'];
 $connection = new \Anhduc\QueryBuilder\Connection\Connection($config);
 ```
 
